@@ -1,27 +1,15 @@
 #pragma once
-#include "client/game.h"
 #include <arpa/inet.h>
-#include <sys/socket.h>
+#include <cglm/call/ivec2.h>
 
-#define MAX 80
+#include "types.h"
+
+#define MAXLINE 1024
 #define PORT 8080
 #define SA struct sockaddr
+#define MAX_PACKET_AGE 300
+#define MAX_PLAYERS 10
 
-typedef struct {
-    int sockfd, connfd;
-    struct sockaddr_in servaddr, cli;
-} ClientData;
+void send_position_packet(int server_sock, const struct sockaddr_in *addr, const Player *player);
 
-typedef struct {
-    int sockfd, connfd;
-    socklen_t len;
-    struct sockaddr_in servaddr, cli;
-    Position player_pos;
-} ServerData;
-
-void client_init(ClientData *client_data);
-void client_receive_position(Position *pos, const int *connfd);
-void client_send_position(Position *pos, const int *connfd);
-void server_init(ServerData *server_data);
-void server_update(ServerData *server_data);
-void socket_close(const int *sockfd);
+void socket_close(int sockfd);

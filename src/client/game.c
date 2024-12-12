@@ -2,7 +2,7 @@
 
 #include <SDL.h>
 
-extern void game_init(Game *game) {
+extern void game_init(Game *game, const uint16_t player_id) {
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
@@ -24,52 +24,89 @@ extern void game_init(Game *game) {
         SDL_Quit();
     }
 
-    game->player_pos.x = 100;
-    game->player_pos.y = 100;
+    game->player.player_id = player_id;
+
+    game->player.position[0] = 100;
+    game->player.position[1] = 100;
 
     game->quit = 0;
 
     game->last_time = SDL_GetTicks();
     game->delta_time = 0.0f;
 }
-extern void game_run(Game *game) {
-        // Calculate delta time
-        const Uint32 current_time = SDL_GetTicks();
-        game->delta_time = (current_time - game->last_time) / 1000.0f; // Convert to seconds
-        game->last_time = current_time;
+extern void game_run(Game *game, ClientData *client_data) {
+    const uint32_t frame_start = SDL_GetTicks();
+
+    game_update_delta_time(game);
+
+    client_receive_packet(client_data);
+
+    game_render(game, game->renderer, client_data->players, client_data->player_count, client_data->player_id);
+
+    const uint8_t moved = game_poll_events(game);
+
+    if(moved) {
+        send_position_packet(client_data->server_sock, &client_data->servaddr, &game->player);
+    }
 
 
-        // Receive the updated player position from the server
-        //receive_position(&player_pos, sockfd);
+    const uint32_t frame_time = SDL_GetTicks() - frame_start;
+    if (frame_time < 16) {
+        SDL_Delay(16 - frame_time);
+    }
+}
+extern void game_render(const Game *game, SDL_Renderer *renderer, const Player *players, const size_t players_size, const uint16_t player_id) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);  // Set color to black
-        SDL_RenderClear(game->renderer);  // Clear the screen with the set color
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    const SDL_Rect rect = { game->player.position[0], game->player.position[1], 100, 100 };
+    SDL_RenderFillRect(renderer, &rect);
 
-        //Draw red rectangle
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);  // Set color to red
-        const SDL_Rect rect = { game->player_pos.x, game->player_pos.y, 400, 300 };
-        SDL_RenderFillRect(game->renderer, &rect);
-
-        SDL_RenderPresent(game->renderer);
-
-        while (SDL_PollEvent(&game->e)) {
-            switch(game->e.type) {
-                case SDL_QUIT:
-                    game->quit = 1;
-                    break;
-                case SDL_KEYDOWN:
-                    switch (game->e.key.keysym.scancode) {
-                        case SDL_SCANCODE_D:
-                            game->player_pos.x += 100.0f * game->delta_time * 10.0f;
-                            break;
-                    }
-            }
+    for(size_t i = 0; i < players_size; i++) {
+        if(i != player_id) {
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            const SDL_Rect server_rect = { players[i].position[0], players[i].position[1], 100, 100 };
+            SDL_RenderFillRect(renderer, &server_rect);
         }
+    }
 
-        //send_position(&player_pos, sockfd);
+    SDL_RenderPresent(renderer);
+}
+extern void game_update_delta_time(Game *game) {
+    const Uint32 current_time = SDL_GetTicks();
+    game->delta_time = (current_time - game->last_time) / 1000.0f; // Convert to seconds
+    game->last_time = current_time;
+}
+extern uint8_t game_poll_events(Game *game) {
+    uint8_t moved = 0;
+    while (SDL_PollEvent(&game->e)) {
+        switch(game->e.type) {
 
-        // Add a short delay to control the frame rate
-        SDL_Delay(16);  // Roughly 60 FPS
+            case SDL_QUIT:
+                game->quit = 1;
+            break;
+        }
+        const Uint8 *state = SDL_GetKeyboardState(NULL);
+
+        if (state[SDL_SCANCODE_W]) {
+            moved = 1;
+            game->player.position[1] -= 100.0f * game->delta_time * 10;
+        }
+        if (state[SDL_SCANCODE_S]) {
+            moved = 1;
+            game->player.position[1] += 100.0f * game->delta_time * 10;
+        }
+        if (state[SDL_SCANCODE_D]) {
+            moved = 1;
+            game->player.position[0] += 100.0f * game->delta_time * 10;
+        }
+        if (state[SDL_SCANCODE_A]) {
+            moved = 1;
+            game->player.position[0] -= 100.0f * game->delta_time * 10;
+        }
+    }
+    return moved;
 }
 extern void game_close(const Game *game) {
 

@@ -8,6 +8,10 @@ set(SERVER_SOURCES
         src/network.h
         src/utils.c
         src/utils.h
+        src/types.c
+        src/types.h
+        src/server/server.c
+        src/server/server.h
 )
 
 set(CLIENT_SOURCES
@@ -18,6 +22,10 @@ set(CLIENT_SOURCES
         src/network.h
         src/utils.c
         src/utils.h
+        src/types.c
+        src/types.h
+        src/client/client.c
+        src/client/client.h
 )
 
 # Find SDL2 package
@@ -35,6 +43,12 @@ add_executable(client ${CLIENT_SOURCES})
 # Link SDL2 with the executables
 target_link_libraries(server ${SDL2_LIBRARIES})
 target_link_libraries(client ${SDL2_LIBRARIES})
+
+add_subdirectory(include/cglm)
+include_directories(include/cglm/include)
+
+target_link_libraries(server cglm)
+target_link_libraries(client cglm)
 
 # Include header files directory
 include_directories(include)
