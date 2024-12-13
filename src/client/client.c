@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-extern void client_send_handshake(const int sock, struct sockaddr_in *server_addr) {
+static void client_send_handshake(const int sock, struct sockaddr_in *server_addr) {
     const char *handshake_message = "Hello, Server!";
 
     Packet packet;
@@ -18,27 +18,7 @@ extern void client_send_handshake(const int sock, struct sockaddr_in *server_add
         printf("Handshake message sent to server\n");
     }
 }
-extern void client_init(ClientData *client_data) {
-    client_data->server_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (client_data->server_sock == -1) {
-        printf("socket creation failed...\n");
-        exit(0);
-    }
-    else
-        printf("Socket successfully created..\n");
-
-    memset(&client_data->servaddr, 0, sizeof(client_data->servaddr));
-    client_data->servaddr.sin_family = AF_INET;
-    client_data->servaddr.sin_addr.s_addr = INADDR_ANY;
-    client_data->servaddr.sin_port = htons(PORT);
-    fcntl(client_data->server_sock, F_SETFL, O_NONBLOCK);
-
-    client_send_handshake(client_data->server_sock, &client_data->servaddr);
-
-    //receive id
-    client_receive_packet(client_data);
-}
-extern void client_process_handshake(ClientData *client_data, char *message, const uint16_t player_id, const Player* players, const uint16_t player_count) {
+static void client_process_handshake(ClientData *client_data, char *message, const uint16_t player_id, const Player* players, const uint16_t player_count) {
     //printf("\nReceived message: %s\n", message);
     //for(size_t i = 0; i < 1; i++) {
     //    client_data->players[i] = players[i];
@@ -47,11 +27,11 @@ extern void client_process_handshake(ClientData *client_data, char *message, con
 
     //client_data->player_id = player_id;
 }
-extern void client_process_position(ClientData *client_data, vec2 position, const uint16_t player_id) {
+static void client_process_position(ClientData *client_data, vec2 position, const uint16_t player_id) {
     //printf("\nprocessing position %fx, %fy, id %d", position[0], position[1], player_id);
     memcpy(client_data->players[player_id].position, position, sizeof(vec2));
 }
-extern void client_receive_packet(ClientData *client_data) {
+void client_receive_packet(ClientData *client_data) {
     struct sockaddr_in addr;
     Packet packet;
     socklen_t addr_len = sizeof(addr);
@@ -84,4 +64,24 @@ extern void client_receive_packet(ClientData *client_data) {
             printf("Unknown packet type received: %d\n", packet.packet_type);
         break;
     }
+}
+void client_init(ClientData *client_data) {
+    client_data->server_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (client_data->server_sock == -1) {
+        printf("socket creation failed...\n");
+        exit(0);
+    }
+    else
+        printf("Socket successfully created..\n");
+
+    memset(&client_data->servaddr, 0, sizeof(client_data->servaddr));
+    client_data->servaddr.sin_family = AF_INET;
+    client_data->servaddr.sin_addr.s_addr = INADDR_ANY;
+    client_data->servaddr.sin_port = htons(PORT);
+    fcntl(client_data->server_sock, F_SETFL, O_NONBLOCK);
+
+    client_send_handshake(client_data->server_sock, &client_data->servaddr);
+
+    //receive id
+    client_receive_packet(client_data);
 }
